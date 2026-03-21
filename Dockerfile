@@ -1,5 +1,5 @@
 # Stage 1: Builder - Install dependencies
-FROM python:3.9-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip wheel --no-cache-dir --wheel-dir=/app/wheels -r requirements.txt
 
 # Stage 2: Final Image - No internet access needed
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -24,8 +24,8 @@ RUN pip install --no-index --find-links=/wheels /wheels/*
 # Copy the application source code
 COPY src/ ./src/
 
-# Create the data directory inside the image
-RUN mkdir data
+# Create data and logs directories inside the image
+RUN mkdir data && mkdir logs
 
 # Set the command to run the application
 CMD ["python", "-u", "src/main.py"]
