@@ -28,7 +28,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-from spot_trading import SpotBot    # noqa: E402 (after logging setup)
 from perps_trading import PerpsBot  # noqa: E402
 
 BOT_ACCOUNT = os.getenv("BOT_ACCOUNT")
@@ -58,27 +57,11 @@ assert PERPS_LEVERAGE <= 15, (
     f"Leverage {PERPS_LEVERAGE}x unsafe for {PERPS_STOP_LOSS_PCT}% SL strategy (max 15x)"
 )
 
-# Spot
-SPOT_LIVE           = _cfg["spot_live"]
-SPOT_CAPITAL_PCT    = _cfg["spot_capital_pct"]
-SPOT_BB_PERIOD      = _cfg["spot_bb_period"]
-SPOT_BB_STD         = _cfg["spot_bb_std"]
-SPOT_EMA_PERIOD     = _cfg["spot_ema_period"]
-SPOT_STOP_LOSS_PCT  = _cfg["spot_stop_loss_pct"]
-
 logger.info("Account: %s | leverage=%dx | capital_pct=%.1f%% | risk/trade=%.1f%%",
             ACCOUNT_NAME, PERPS_LEVERAGE, PERPS_CAPITAL_PCT, _cfg["target_risk_pct"])
 
 
 def main():
-    spot_bot = SpotBot(
-        dry_run=not SPOT_LIVE,
-        capital_percent=SPOT_CAPITAL_PCT,
-        bb_period=SPOT_BB_PERIOD,
-        bb_std=SPOT_BB_STD,
-        ema_period=SPOT_EMA_PERIOD,
-        stop_loss_pct=SPOT_STOP_LOSS_PCT,
-    )
     perps_bot = PerpsBot(
         dry_run=not PERPS_LIVE,
         leverage=PERPS_LEVERAGE,
@@ -102,20 +85,17 @@ def main():
             logger.warning("Price fetch failed: %s", exc)
             return None
 
-    spot_bot.update_indicators()
     perps_bot.update_indicators()
     last_indicator_update = time.monotonic()
 
     while True:
         now = time.monotonic()
         if now - last_indicator_update >= INDICATOR_INTERVAL:
-            spot_bot.update_indicators()
             perps_bot.update_indicators()
             last_indicator_update = now
 
         price = fetch_price()
         if price is not None:
-            spot_bot.check_signals(price)
             perps_bot.check_signals(price)
 
         time.sleep(1)

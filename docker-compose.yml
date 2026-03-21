@@ -16,7 +16,7 @@ services:
     volumes:
       - ./tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
