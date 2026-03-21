@@ -10,10 +10,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Ensure logs directory exists
-logs_dir = Path(__file__).parent.parent / "logs"
-logs_dir.mkdir(exist_ok=True)
-
 logging.basicConfig(
     level=logging.INFO,
     # level=logging.DEBUG,
@@ -21,7 +17,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(logs_dir / "app.log"),
     ],
 )
 

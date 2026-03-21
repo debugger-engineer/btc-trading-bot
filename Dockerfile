@@ -24,8 +24,8 @@ RUN pip install --no-index --find-links=/wheels /wheels/*
 # Copy the application source code
 COPY src/ ./src/
 
-# Create data and logs directories inside the image
-RUN mkdir data && mkdir logs
+# Create data directory inside the image
+RUN mkdir data
 
 # Set the command to run the application
 CMD ["python", "-u", "src/main.py"]

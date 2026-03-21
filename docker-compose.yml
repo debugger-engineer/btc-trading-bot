@@ -61,7 +61,6 @@ services:
       - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
       - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
     volumes:
-      - ./logs/bot-5x:/app/logs
       - ./config:/app/config:ro
 
   bot-8x:
@@ -79,7 +78,6 @@ services:
       - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_8X}
       - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_8X}
     volumes:
-      - ./logs/bot-8x:/app/logs
       - ./config:/app/config:ro
 
   bot-10x:
@@ -97,7 +95,6 @@ services:
       - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_10X}
       - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_10X}
     volumes:
-      - ./logs/bot-10x:/app/logs
       - ./config:/app/config:ro
 
 volumes:
