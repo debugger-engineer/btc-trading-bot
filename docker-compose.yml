@@ -5,7 +5,7 @@ services:
     hostname: btc-trading-bot
     restart: unless-stopped
     ports:
-      - "5233:5432"
+      - "5433:5432"
     dns:
       - 8.8.8.8
       - 8.8.4.4
