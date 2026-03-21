@@ -16,6 +16,7 @@ services:
     volumes:
       - ./tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
+      - /var/run/docker.sock:/var/run/docker.sock
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -63,7 +64,6 @@ services:
     volumes:
       - ./logs/bot-5x:/app/logs
       - ./config:/app/config:ro
-      - /var/run/docker.sock:/var/run/docker.sock
 
   bot-8x:
     build: .
@@ -82,7 +82,6 @@ services:
     volumes:
       - ./logs/bot-8x:/app/logs
       - ./config:/app/config:ro
-      - /var/run/docker.sock:/var/run/docker.sock
 
   bot-10x:
     build: .
@@ -101,7 +100,6 @@ services:
     volumes:
       - ./logs/bot-10x:/app/logs
       - ./config:/app/config:ro
-      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   postgres_data:
