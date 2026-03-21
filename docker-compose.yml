@@ -12,6 +12,7 @@ services:
     environment:
       - TS_AUTHKEY=${TS_AUTHKEY}
       - TS_STATE_DIR=/var/lib/tailscale
+      - TS_NO_LOGS_NO_SUPPORT=true
     volumes:
       - ./tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
