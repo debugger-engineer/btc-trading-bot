@@ -9,27 +9,6 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-# One row per spot trade (BUY→SELL pair). Closed_at / exit fields filled on close.
-CREATE_SPOT_TABLE = """
-CREATE TABLE IF NOT EXISTS spot_trades (
-    id              SERIAL PRIMARY KEY,
-    opened_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    closed_at       TIMESTAMPTZ,
-    status          VARCHAR(6)  NOT NULL DEFAULT 'OPEN',   -- OPEN, CLOSED
-    btc_amount      NUMERIC,
-    entry_price     NUMERIC,
-    exit_price      NUMERIC,
-    usdc_spent      NUMERIC,
-    usdc_received   NUMERIC,
-    profit_usdc     NUMERIC,   -- usdc_received - usdc_spent
-    bb_upper        NUMERIC,   -- Bollinger Band values at entry (strategy context)
-    bb_lower        NUMERIC,
-    bb_mid          NUMERIC,
-    stop_price      NUMERIC,   -- stop-loss level set at entry
-    closed_by_sl    BOOLEAN     NOT NULL DEFAULT FALSE
-);
-"""
-
 
 # BB mean-reversion perp trades — one row per trade (single entry, opposite-band exit).
 CREATE_BB_TABLE = """
@@ -70,16 +49,6 @@ def _connect():
     )
 
 
-def init_db():
-    try:
-        with _connect() as conn, conn.cursor() as cur:
-            cur.execute(CREATE_SPOT_TABLE)
-        logger.info("DB connected — spot_trades table ready")
-    except Exception as exc:
-        logger.error("DB init failed: %s", exc)
-        raise
-
-
 def init_bb_db():
     try:
         with _connect() as conn, conn.cursor() as cur:
@@ -88,42 +57,6 @@ def init_bb_db():
     except Exception as exc:
         logger.error("Perps DB init failed: %s", exc)
         raise
-
-
-# --- Spot trade logging ---
-
-def open_spot_trade(
-    btc_amount: float, entry_price: float, usdc_spent: float,
-    bb_upper: float, bb_lower: float, bb_mid: float, stop_price: float,
-) -> int:
-    """Insert an open spot trade. Returns the new row id."""
-    with _connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO spot_trades
-               (btc_amount, entry_price, usdc_spent, bb_upper, bb_lower, bb_mid, stop_price)
-               VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-            (btc_amount, entry_price, usdc_spent, bb_upper, bb_lower, bb_mid, stop_price),
-        )
-        trade_id = cur.fetchone()[0]
-    logger.info("Spot trade opened — id=%d %.6f BTC @ $%.2f", trade_id, btc_amount, entry_price)
-    return trade_id
-
-
-def close_spot_trade(trade_id: int, exit_price: float, usdc_received: float, stopped: bool = False):
-    """Update a spot trade on close, computing profit."""
-    with _connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """UPDATE spot_trades
-               SET closed_at     = NOW(),
-                   status        = 'CLOSED',
-                   exit_price    = %s,
-                   usdc_received = %s,
-                   profit_usdc   = %s - usdc_spent,
-                   closed_by_sl  = %s
-               WHERE id = %s""",
-            (exit_price, usdc_received, usdc_received, stopped, trade_id),
-        )
-    logger.info("Spot trade closed — id=%d exit=$%.2f received=$%.2f", trade_id, exit_price, usdc_received)
 
 
 # --- BB trade logging ---
@@ -148,19 +81,6 @@ def open_bb_trade(
     logger.info("BB trade opened — id=%d %s @ $%.2f size=$%.2f SL=$%.2f",
                 trade_id, direction, entry_price, entry_size_usd, stop_price)
     return trade_id
-
-
-def get_open_spot_trade() -> dict | None:
-    """Return the most recent open spot trade row, or None."""
-    with _connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT id, btc_amount, entry_price, usdc_spent
-               FROM spot_trades WHERE status = 'OPEN' ORDER BY opened_at DESC LIMIT 1"""
-        )
-        row = cur.fetchone()
-    if row:
-        return {"id": row[0], "btc_amount": float(row[1]), "entry_price": float(row[2]), "usdc_spent": float(row[3])}
-    return None
 
 
 def get_open_bb_trade() -> dict | None:

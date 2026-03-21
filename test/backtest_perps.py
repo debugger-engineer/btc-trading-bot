@@ -24,13 +24,12 @@ DAYS_LIST      = [30, 60, 90, 180, 365, 730]
 
 # Configs to compare — add or remove freely
 CONFIGS = [
-    {"label": "BTC CURRENT STRATEGY BB(20,2.0)  SL=4.0%",  "bp": 20, "bs": 2.0, "sl": 4.0}, # CURRENT BTC STRATEGY ON 5M, NEVER REMOVE!!!     
-    {"label": "BTC BB(20,2.0)  SL=2.5%", "bp": 20, "bs": 2.0, "sl": 2.5}, 
-    {"label": "BTC BB(20,2.0)  SL=3.0%",  "bp": 20, "bs": 2.0, "sl": 3.0},  
-    {"label": "BTC BB(20,2.0)  SL=3.5%",  "bp": 20, "bs": 2.0, "sl": 3.5},  
-    {"label": "BTC BB(20,2.0)  SL=4.0%",  "bp": 20, "bs": 2.0, "sl": 4.0},  
-    {"label": "BTC BB(20,2.0)  SL=4.5%",  "bp": 20, "bs": 2.0, "sl": 4.5},  
-    {"label": "BTC BB(20,2.0)  SL=5.0%",  "bp": 20, "bs": 2.0, "sl": 5.0},  
+    {"label": "BTC CURRENT STRATEGY BB(20,2.0)  SL=2.5%",  "bp": 20, "bs": 2.0, "sl": 2.5}, # CURRENT BTC STRATEGY ON 5M, NEVER REMOVE!!!
+    {"label": "BTC BB(20,2.0)  SL=3.0%",  "bp": 20, "bs": 2.0, "sl": 3.0},
+    {"label": "BTC BB(20,2.0)  SL=3.5%",  "bp": 20, "bs": 2.0, "sl": 3.5},
+    {"label": "BTC BB(20,2.0)  SL=4.0%",  "bp": 20, "bs": 2.0, "sl": 4.0},
+    {"label": "BTC BB(20,2.0)  SL=4.5%",  "bp": 20, "bs": 2.0, "sl": 4.5},
+    {"label": "BTC BB(20,2.0)  SL=5.0%",  "bp": 20, "bs": 2.0, "sl": 5.0},
 
 ]
 
