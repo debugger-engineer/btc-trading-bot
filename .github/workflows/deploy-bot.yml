@@ -25,13 +25,10 @@ jobs:
           # Auto-discover Docker socket
           if [ -S "/var/run/docker.sock" ]; then
             export DOCKER_HOST="unix:///var/run/docker.sock"
-            export DOCKER_SOCK="/var/run/docker.sock"
           elif [ -S "$HOME/.docker/run/docker.sock" ]; then
             export DOCKER_HOST="unix://$HOME/.docker/run/docker.sock"
-            export DOCKER_SOCK="$HOME/.docker/run/docker.sock"
           fi
           echo "Using DOCKER_HOST=$DOCKER_HOST"
-          echo "Using DOCKER_SOCK=$DOCKER_SOCK"
 
           # Detect docker compose command
           if docker compose version > /dev/null 2>&1; then

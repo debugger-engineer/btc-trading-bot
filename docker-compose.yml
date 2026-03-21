@@ -16,7 +16,6 @@ services:
     volumes:
       - ./tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
-      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -42,7 +41,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-crypto-trading}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-crypto_trading}"]
       interval: 5s
       timeout: 5s
       retries: 5
