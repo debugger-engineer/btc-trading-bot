@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# VSCode
+.vscode/
+
+# Database
+data/
+
+# Logs
+logs/
+
+# Tailscale state
+tailscale/
+
+PROJECT_PLAN.md
+
+.DS_Store

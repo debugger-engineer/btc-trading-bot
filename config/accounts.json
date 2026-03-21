@@ -1,0 +1,13 @@
+{
+  "target_risk_pct": 8.0,
+  "stop_loss_pct": 2.5,
+  "bb_period": 20,
+  "bb_std": 2.0,
+  "ema_period": 200,
+  "perps_live": true,
+  "accounts": [
+    { "name": "bot-5x",  "leverage": 5,  "active": true  },
+    { "name": "bot-8x",  "leverage": 8,  "active": false },
+    { "name": "bot-10x", "leverage": 10, "active": false }
+  ]
+}

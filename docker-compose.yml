@@ -1,0 +1,101 @@
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: btc-trading-bot-tailscale
+    hostname: btc-trading-bot
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_NO_LOGS_NO_SUPPORT=true
+    volumes:
+      - ./tailscale:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    healthcheck:
+      test: ["CMD-SHELL", "tailscale status --peers=false | grep -q 'logged out' && exit 1 || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: btc-trading-bot-postgres
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-crypto_trading}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-crypto_trading}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  bot-5x:
+    build: .
+    profiles: [bot-5x]
+    container_name: btc-trading-bot-5x
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-8x:
+    build: .
+    profiles: [bot-8x]
+    container_name: btc-trading-bot-8x
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-8x
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_8X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_8X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-10x:
+    build: .
+    profiles: [bot-10x]
+    container_name: btc-trading-bot-10x
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-10x
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_10X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_10X}
+    volumes:
+      - ./config:/app/config:ro
+
+volumes:
+  postgres_data:
