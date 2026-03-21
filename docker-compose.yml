@@ -1,8 +1,8 @@
 services:
   tailscale:
     image: tailscale/tailscale:latest
-    container_name: btc-rsi-trading-bot-tailscale
-    hostname: btc-rsi-trading-bot
+    container_name: btc-trading-bot-tailscale
+    hostname: btc-trading-bot
     restart: unless-stopped
     ports:
       - "5233:5432"
@@ -28,7 +28,7 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    container_name: btc-rsi-trading-bot-postgres
+    container_name: btc-trading-bot-postgres
     restart: unless-stopped
     network_mode: service:tailscale
     depends_on:
@@ -48,7 +48,8 @@ services:
 
   bot-5x:
     build: .
-    container_name: btc-rsi-bot-5x
+    profiles: [bot-5x]
+    container_name: btc-trading-bot-5x
     restart: unless-stopped
     network_mode: service:tailscale
     depends_on:
@@ -62,10 +63,12 @@ services:
     volumes:
       - ./logs/bot-5x:/app/logs
       - ./config:/app/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
 
   bot-8x:
     build: .
-    container_name: btc-rsi-bot-8x
+    profiles: [bot-8x]
+    container_name: btc-trading-bot-8x
     restart: unless-stopped
     network_mode: service:tailscale
     depends_on:
@@ -79,10 +82,12 @@ services:
     volumes:
       - ./logs/bot-8x:/app/logs
       - ./config:/app/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
 
   bot-10x:
     build: .
-    container_name: btc-rsi-bot-10x
+    profiles: [bot-10x]
+    container_name: btc-trading-bot-10x
     restart: unless-stopped
     network_mode: service:tailscale
     depends_on:
@@ -96,6 +101,7 @@ services:
     volumes:
       - ./logs/bot-10x:/app/logs
       - ./config:/app/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   postgres_data:

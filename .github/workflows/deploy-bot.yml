@@ -46,7 +46,11 @@ jobs:
 
           cd "$TARGET_DIR"
 
-          $DOCKER_COMPOSE up -d --build --remove-orphans
+          # Build --profile flags from active accounts in config/accounts.json
+          PROFILE_FLAGS=$(python3 -c "import json; cfg=json.load(open('config/accounts.json')); print(' '.join('--profile '+a['name'] for a in cfg['accounts'] if a.get('active')))")
+          echo "Active profiles: $PROFILE_FLAGS"
+
+          $DOCKER_COMPOSE $PROFILE_FLAGS up -d --build --remove-orphans
 
           echo "Running containers:"
           $DOCKER_COMPOSE ps
