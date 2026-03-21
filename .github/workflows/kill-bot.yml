@@ -23,7 +23,7 @@ jobs:
             DOCKER_COMPOSE="docker-compose"
           fi
 
-          TARGET_DIR="/Users/admin/opt/apps-prod/btc-rsi-trading-bot"
+          TARGET_DIR="/Users/admin/opt/apps-prod/btc-trading-bot"
 
           if [ -d "$TARGET_DIR" ]; then
             cd "$TARGET_DIR"

@@ -38,7 +38,7 @@ jobs:
           fi
           echo "Using $DOCKER_COMPOSE"
 
-          TARGET_DIR="/Users/admin/opt/apps-prod/btc-rsi-trading-bot"
+          TARGET_DIR="/Users/admin/opt/apps-prod/btc-trading-bot"
           mkdir -p "$TARGET_DIR"
 
           # Sync code (preserves .env and other untracked files on server)
