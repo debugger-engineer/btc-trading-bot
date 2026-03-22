@@ -1,13 +1,47 @@
-name: Deploy
+name: CI/CD
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+  pull_request:
+    branches: [main]
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install pandas requests python-dotenv psycopg2-binary pytest pytest-mock
+
+      - name: Run unit tests
+        run: pytest test/test_signals.py test/test_stop_logic.py test/test_pnl.py
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install pandas requests python-dotenv psycopg2-binary pytest pytest-mock
+
+      - name: Run integration tests
+        run: pytest test/test_entry_flow.py test/test_exit_flow.py
+
   deploy:
+    needs: [unit-tests, integration-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: self-hosted
     steps:
       - name: Checkout code
@@ -17,19 +51,6 @@ jobs:
 
       - name: Deploy to server
         run: |
-          # Disable Docker credential store to avoid keychain issues
-          mkdir -p $HOME/.docker
-          echo '{"credsStore": ""}' > $HOME/.docker/config.json
-          export DOCKER_CONFIG="$HOME/.docker"
-
-          # Auto-discover Docker socket
-          if [ -S "/var/run/docker.sock" ]; then
-            export DOCKER_HOST="unix:///var/run/docker.sock"
-          elif [ -S "$HOME/.docker/run/docker.sock" ]; then
-            export DOCKER_HOST="unix://$HOME/.docker/run/docker.sock"
-          fi
-          echo "Using DOCKER_HOST=$DOCKER_HOST"
-
           # Detect docker compose command
           if docker compose version > /dev/null 2>&1; then
             DOCKER_COMPOSE="docker compose"
