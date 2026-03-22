@@ -1,7 +1,6 @@
 requests==2.32.5
 python-dotenv==1.2.1
 pandas==2.3.3
-schedule==1.2.2
-hyperliquid-python-sdk
-eth-account
-psycopg2-binary
+psycopg2-binary==2.9.11
+hyperliquid-python-sdk==0.22.0
+eth-account==0.13.7
