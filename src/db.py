@@ -49,6 +49,19 @@ def _connect():
     )
 
 
+def compute_pnl(
+    direction: str, entry_price: float, exit_price: float,
+    size_usd: float, entry_fee: float, exit_fee: float,
+) -> dict:
+    """Pure Python PnL calculation — mirrors the SQL in close_bb_trade."""
+    gross = (
+        (exit_price - entry_price) if direction == "LONG"
+        else (entry_price - exit_price)
+    ) / entry_price * size_usd
+    fees = entry_fee + exit_fee
+    return {"gross_pnl": gross, "fees": fees, "net_pnl": gross - fees}
+
+
 def init_bb_db():
     try:
         with _connect() as conn, conn.cursor() as cur:

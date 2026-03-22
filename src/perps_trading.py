@@ -45,6 +45,8 @@ class PerpsBot:
         ema_period: int = 200,
         stop_loss_pct: float = 2.0,
         account_name: str = "",
+        _trader=None,
+        _db=None,
     ):
         self.dry_run = dry_run
         self.leverage = leverage
@@ -70,6 +72,7 @@ class PerpsBot:
         self._bb_mid: float | None = None
         self._ema: float | None = None
         self._last_close: float | None = None
+        self._db = _db or db  # injected for testing; falls back to real db module
 
         # Pending limit-entry order state
         self._pending_entry_oid: int | None = None
@@ -85,10 +88,13 @@ class PerpsBot:
                 bb_period, bb_std, ema_period, stop_loss_pct, leverage, capital_percent,
             )
         else:
-            from exchange import HyperliquidTrader
-            self.trader = HyperliquidTrader()
+            if _trader is not None:
+                self.trader = _trader
+            else:
+                from exchange import HyperliquidTrader
+                self.trader = HyperliquidTrader()
             self.trader.update_leverage(self.leverage)
-            db.init_bb_db()
+            self._db.init_bb_db()
             logger.info(
                 "PerpsBot [LIVE] BB(%d,%.1f) EMA(%d) SL=%.0f%% leverage=%dx capital=%.0f%%",
                 bb_period, bb_std, ema_period, stop_loss_pct, leverage, capital_percent,
@@ -101,7 +107,7 @@ class PerpsBot:
         """On restart, recover position from DB and re-place the stop-loss order."""
         # Cancel any orphaned limit entry orders from a previous session
         self.trader.cancel_all_open_orders(BTC_PERP_COIN)
-        open_trade = db.get_open_bb_trade()
+        open_trade = self._db.get_open_bb_trade()
         if not open_trade:
             return
         self.position         = open_trade["direction"]
@@ -111,7 +117,7 @@ class PerpsBot:
         actual = self.trader.get_perp_position()
         if not actual or actual["side"] != self.position:
             logger.warning("[PERPS] DB has open trade but no matching exchange position — closing DB record")
-            db.close_bb_trade(self.current_trade_id, self.entry_price, stopped=False)
+            self._db.close_bb_trade(self.current_trade_id, self.entry_price, stopped=False)
             self._reset_position()
             return
         stop_price = (
@@ -271,7 +277,7 @@ class PerpsBot:
                         logger.info("[PERPS] Position gone [TARGET HIT] — exit limit filled (maker)")
                     if self.current_trade_id:
                         exit_fill = self.trader.get_last_btc_perp_fill()
-                        db.close_bb_trade(
+                        self._db.close_bb_trade(
                             self.current_trade_id, exit_fill["px"], stopped=stopped,
                             exit_bb_upper=self._bb_upper, exit_bb_lower=self._bb_lower,
                             exit_bb_mid=self._bb_mid,
@@ -410,7 +416,7 @@ class PerpsBot:
         target_price = bb_upper if side == "LONG" else bb_lower
         entry_fill = self.trader.get_last_btc_perp_fill()
         self._entry_fee = entry_fill["fee"]
-        self.current_trade_id = db.open_bb_trade(
+        self.current_trade_id = self._db.open_bb_trade(
             side, self.leverage, fill_px, size_usd,
             bb_upper, bb_lower, bb_mid, stop_price,
             account_name=self.account_name,
@@ -480,7 +486,7 @@ class PerpsBot:
         if result.get("status") == "ok":
             if self.current_trade_id:
                 exit_fill = self.trader.get_last_btc_perp_fill()
-                db.close_bb_trade(
+                self._db.close_bb_trade(
                     self.current_trade_id, exit_fill["px"], stopped,
                     exit_bb_upper=self._bb_upper, exit_bb_lower=self._bb_lower, exit_bb_mid=self._bb_mid,
                     entry_fee=self._entry_fee, exit_fee=exit_fill["fee"],
