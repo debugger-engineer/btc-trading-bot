@@ -23,6 +23,22 @@ Indicators refresh every 5 minutes. The take-profit limit order is updated on ea
 
 Backtest results (5m, 365 days, BB(20,2) + EMA(200) + 2% SL): ~88.8% annually, 69% win rate, 872 trades.
 
+## Multi-Account & Leverage Strategy
+
+The bot runs the same strategy simultaneously across multiple Hyperliquid accounts, each with a different leverage. This lets you express the same signal at different risk/return profiles without maintaining separate bots.
+
+Each account in `config/accounts.json` has its own `leverage` and `active` flag. On startup, the bot spawns one independent trading loop per active account. Position sizing is recalculated per account using that account's leverage and its own margin balance.
+
+Current setup:
+
+| Account  | Leverage | Active |
+|----------|----------|--------|
+| bot-5x   | 5x       | yes    |
+| bot-8x   | 8x       | no     |
+| bot-10x  | 10x      | no     |
+
+Accounts share the same signal (same candle data, same indicators) but manage their positions, orders, and stop-losses independently.
+
 ## Position Sizing
 
 Position size is derived from account balance, leverage, and a target risk per trade:
@@ -47,7 +63,9 @@ Default config: 8% target risk, 2.5% stop loss, 5x leverage → ~64% of margin p
   "ema_period": 200,
   "perps_live": true,
   "accounts": [
-    { "name": "bot-5x", "leverage": 5, "active": true }
+    { "name": "bot-5x",  "leverage": 5,  "active": true  },
+    { "name": "bot-8x",  "leverage": 8,  "active": false },
+    { "name": "bot-10x", "leverage": 10, "active": false }
   ]
 }
 ```
