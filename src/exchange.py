@@ -132,26 +132,26 @@ class HyperliquidTrader:
         logger.info("Open short result: %s", result)
         return result
 
-    def open_long_limit(self, size_usd: float, limit_px: float) -> dict:
-        """Place a GTC limit buy order for a BTC long perp position (maker fee)."""
+    def open_long_limit(self, size_usd: float, limit_px: float, tif: str = "Alo") -> dict:
+        """Place a limit buy order for a BTC long perp position. Default TIF is ALO (maker-only)."""
         sz  = round(size_usd / limit_px, 5)
         px  = self._round_perp_price(limit_px)
         result = self.exchange.order(
             BTC_PERP_ASSET, is_buy=True, sz=sz,
-            limit_px=px, order_type={"limit": {"tif": "Gtc"}}, reduce_only=False,
+            limit_px=px, order_type={"limit": {"tif": tif}}, reduce_only=False,
         )
-        logger.info("LIMIT LONG %.5f BTC @ $%.1f result: %s", sz, px, result)
+        logger.info("LIMIT LONG %.5f BTC @ $%.1f [%s] result: %s", sz, px, tif, result)
         return result
 
-    def open_short_limit(self, size_usd: float, limit_px: float) -> dict:
-        """Place a GTC limit sell order for a BTC short perp position (maker fee)."""
+    def open_short_limit(self, size_usd: float, limit_px: float, tif: str = "Alo") -> dict:
+        """Place a limit sell order for a BTC short perp position. Default TIF is ALO (maker-only)."""
         sz  = round(size_usd / limit_px, 5)
         px  = self._round_perp_price(limit_px)
         result = self.exchange.order(
             BTC_PERP_ASSET, is_buy=False, sz=sz,
-            limit_px=px, order_type={"limit": {"tif": "Gtc"}}, reduce_only=False,
+            limit_px=px, order_type={"limit": {"tif": tif}}, reduce_only=False,
         )
-        logger.info("LIMIT SHORT %.5f BTC @ $%.1f result: %s", sz, px, result)
+        logger.info("LIMIT SHORT %.5f BTC @ $%.1f [%s] result: %s", sz, px, tif, result)
         return result
 
     def close_perp_position(self) -> dict:

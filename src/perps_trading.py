@@ -21,6 +21,25 @@ def _extract_oid(result: dict) -> int | None:
         return None
 
 
+def _is_filled(result: dict) -> tuple[bool, float]:
+    """Return (True, avgPx) if the order was immediately filled."""
+    try:
+        filled = result["response"]["data"]["statuses"][0]["filled"]
+        return True, float(filled.get("avgPx", 0))
+    except (KeyError, IndexError, TypeError):
+        return False, 0.0
+
+
+def _is_alo_rejected(result: dict) -> bool:
+    """Return True if an ALO order was rejected because it would have crossed the spread."""
+    try:
+        status = result["response"]["data"]["statuses"][0]
+        # Hyperliquid returns {"error": "..."} or {"canceled": ...} for ALO kills
+        return "error" in status or "canceled" in status
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
 class PerpsBot:
     """BB mean-reversion BTC perpetuals bot.
 
@@ -370,7 +389,12 @@ class PerpsBot:
         return balance * (self.capital_percent / 100) * self.leverage
 
     def _place_entry_limit(self, side: str, price: float, bb_upper: float, bb_lower: float, bb_mid: float):
-        """Phase 1: place a GTC limit order at the trigger band level."""
+        """Phase 1: place an ALO (post-only/maker) limit order at the trigger band level.
+
+        On ALO rejection (order would cross the spread), retry up to twice with the price
+        nudged further inside the book (-0.1, -0.2 for LONG; +0.1, +0.2 for SHORT).
+        If all ALO attempts fail, fall back to a GTC taker order at the last nudged price.
+        """
         size_usd = self._entry_size_usd()
         if size_usd < 1.0:
             logger.warning("[PERPS] Skipping — insufficient margin (%.2f USDC)", size_usd)
@@ -384,15 +408,48 @@ class PerpsBot:
         )
         oid = _extract_oid(result)
         if oid is None:
-            # Immediate fill: Hyperliquid returns "filled" instead of "resting"
-            statuses = result.get("response", {}).get("data", {}).get("statuses", [{}])
-            if statuses and "filled" in statuses[0]:
-                filled_px = float(statuses[0]["filled"].get("avgPx", limit_px))
+            filled, filled_px = _is_filled(result)
+            if filled:
+                # ALO orders should not fill immediately, but handle defensively
                 logger.info("[PERPS] Limit %s filled immediately @ $%.2f", side, filled_px)
                 self._on_entry_filled(side, filled_px, size_usd, bb_upper, bb_lower, bb_mid)
-            else:
-                logger.error("[PERPS] Limit %s order failed: %s", side, result)
-            return
+                return
+            # ALO rejected: retry twice, nudging one more tick inside the book each time
+            for tick in (1, 2):
+                if not _is_alo_rejected(result):
+                    break
+                retry_px = round(price - tick * 0.1, 1) if side == "LONG" else round(price + tick * 0.1, 1)
+                logger.info(
+                    "[PERPS] ALO %s rejected at $%.1f — retry %d/2 at $%.1f",
+                    side, limit_px, tick, retry_px,
+                )
+                result = (
+                    self.trader.open_long_limit(size_usd, retry_px)
+                    if side == "LONG"
+                    else self.trader.open_short_limit(size_usd, retry_px)
+                )
+                oid = _extract_oid(result)
+                limit_px = retry_px
+            # All ALO attempts exhausted — fall back to GTC (taker)
+            if oid is None:
+                logger.warning(
+                    "[PERPS] ALO %s rejected after 2 retries — falling back to GTC taker at $%.1f",
+                    side, limit_px,
+                )
+                result = (
+                    self.trader.open_long_limit(size_usd, limit_px, tif="Gtc")
+                    if side == "LONG"
+                    else self.trader.open_short_limit(size_usd, limit_px, tif="Gtc")
+                )
+                oid = _extract_oid(result)
+                filled, filled_px = _is_filled(result)
+                if filled:
+                    logger.info("[PERPS] GTC fallback %s filled @ $%.2f (taker)", side, filled_px)
+                    self._on_entry_filled(side, filled_px, size_usd, bb_upper, bb_lower, bb_mid)
+                    return
+            if oid is None:
+                logger.error("[PERPS] Limit %s order failed after all retries: %s", side, result)
+                return
         self._pending_entry_oid      = oid
         self._pending_entry_side     = side
         self._pending_entry_px       = limit_px
