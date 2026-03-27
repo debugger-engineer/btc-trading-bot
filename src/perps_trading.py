@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from datetime import datetime, timezone
 
@@ -38,6 +39,21 @@ def _is_alo_rejected(result: dict) -> bool:
         return "error" in status or "canceled" in status
     except (KeyError, IndexError, TypeError):
         return False
+
+
+def _parse_bbo_from_rejection(result: dict) -> tuple[float, float] | None:
+    """Return (bid, ask) parsed from an ALO rejection error string, or None if not parseable.
+
+    Hyperliquid includes the BBO in the error: "bbo was {bid}@{ask}. asset=N"
+    """
+    try:
+        error_msg = result["response"]["data"]["statuses"][0].get("error", "")
+        m = re.search(r"bbo was ([\d.]+)@([\d.]+)", error_msg)
+        if m:
+            return float(m.group(1)), float(m.group(2))
+    except (KeyError, IndexError, TypeError):
+        pass
+    return None
 
 
 class PerpsBot:
@@ -339,11 +355,6 @@ class PerpsBot:
                         f"[DRY RUN] Stop-loss hit — close LONG @ ${price:.2f} (SL=${sl_price:.2f})",
                         lambda: self._close(price, stopped=True),
                     )
-                elif bb_upper < self.entry_price and price <= self.entry_price:
-                    self._dry_or_live(
-                        f"[DRY RUN] Inverted TP — close LONG @ break-even ${self.entry_price:.2f}",
-                        lambda: self._close(self.entry_price),
-                    )
                 elif price >= bb_upper:
                     self._dry_or_live(
                         f"[DRY RUN] ${price:.2f} ≥ BB upper ${bb_upper:.2f} — close LONG (target hit)",
@@ -356,11 +367,6 @@ class PerpsBot:
                     self._dry_or_live(
                         f"[DRY RUN] Stop-loss hit — close SHORT @ ${price:.2f} (SL=${sl_price:.2f})",
                         lambda: self._close(price, stopped=True),
-                    )
-                elif bb_lower > self.entry_price and price >= self.entry_price:
-                    self._dry_or_live(
-                        f"[DRY RUN] Inverted TP — close SHORT @ break-even ${self.entry_price:.2f}",
-                        lambda: self._close(self.entry_price),
                     )
                 elif price <= bb_lower:
                     self._dry_or_live(
@@ -391,9 +397,9 @@ class PerpsBot:
     def _place_entry_limit(self, side: str, price: float, bb_upper: float, bb_lower: float, bb_mid: float):
         """Phase 1: place an ALO (post-only/maker) limit order at the trigger band level.
 
-        On ALO rejection (order would cross the spread), retry up to twice with the price
-        nudged further inside the book (-0.1, -0.2 for LONG; +0.1, +0.2 for SHORT).
-        If all ALO attempts fail, fall back to a GTC taker order at the last nudged price.
+        On ALO rejection (order would cross the spread), retry up to 3 times using the
+        actual BBO from the rejection message to ensure the retry price lands on the maker
+        side of the book. If all ALO attempts fail, fall back to a GTC taker order.
         """
         size_usd = self._entry_size_usd()
         if size_usd < 1.0:
@@ -414,14 +420,21 @@ class PerpsBot:
                 logger.info("[PERPS] Limit %s filled immediately @ $%.2f", side, filled_px)
                 self._on_entry_filled(side, filled_px, size_usd, bb_upper, bb_lower, bb_mid)
                 return
-            # ALO rejected: retry twice, nudging one more tick inside the book each time
-            for tick in (1, 2):
+            # ALO rejected: retry up to 3 times using the BBO from the rejection message
+            for attempt in range(1, 4):
                 if not _is_alo_rejected(result):
                     break
-                retry_px = round(price - tick * 0.1, 1) if side == "LONG" else round(price + tick * 0.1, 1)
+                bbo = _parse_bbo_from_rejection(result)
+                if bbo:
+                    bid, ask = bbo
+                    # Place at current bid (LONG) or ask (SHORT) — guaranteed maker side
+                    retry_px = bid if side == "LONG" else ask
+                else:
+                    # BBO not parseable: nudge $1 further inside the book from last price
+                    retry_px = round(limit_px - 1.0, 1) if side == "LONG" else round(limit_px + 1.0, 1)
                 logger.info(
-                    "[PERPS] ALO %s rejected at $%.1f — retry %d/2 at $%.1f",
-                    side, limit_px, tick, retry_px,
+                    "[PERPS] ALO %s rejected at $%.1f — retry %d/3 at $%.1f",
+                    side, limit_px, attempt, retry_px,
                 )
                 result = (
                     self.trader.open_long_limit(size_usd, retry_px)
@@ -433,7 +446,7 @@ class PerpsBot:
             # All ALO attempts exhausted — fall back to GTC (taker)
             if oid is None:
                 logger.warning(
-                    "[PERPS] ALO %s rejected after 2 retries — falling back to GTC taker at $%.1f",
+                    "[PERPS] ALO %s rejected after 3 retries — falling back to GTC taker at $%.1f",
                     side, limit_px,
                 )
                 result = (

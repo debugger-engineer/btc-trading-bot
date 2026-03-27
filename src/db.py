@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS perps_trades (
     exit_bb_upper   NUMERIC,
     exit_bb_lower   NUMERIC,
     exit_bb_mid     NUMERIC,
-    realized_pnl    NUMERIC,   -- kept for backwards compatibility (= gross_pnl)
     gross_pnl       NUMERIC,   -- price-move PnL before fees
     fees            NUMERIC,   -- total round-trip fees paid
     net_pnl         NUMERIC,   -- gross_pnl - fees (true realized PnL)
@@ -138,18 +137,13 @@ def close_bb_trade(
                    net_pnl       = CASE direction
                        WHEN 'LONG'  THEN (%s - entry_price) / entry_price * entry_size_usd
                        WHEN 'SHORT' THEN (entry_price - %s) / entry_price * entry_size_usd
-                   END - %s,
-                   realized_pnl  = CASE direction
-                       WHEN 'LONG'  THEN (%s - entry_price) / entry_price * entry_size_usd
-                       WHEN 'SHORT' THEN (entry_price - %s) / entry_price * entry_size_usd
-                   END
+                   END - %s
                WHERE id = %s""",
             (
                 exit_price, exit_bb_upper, exit_bb_lower, exit_bb_mid, stopped,
                 exit_price, exit_price,        # gross_pnl
                 total_fees,                    # fees
                 exit_price, exit_price, total_fees,  # net_pnl
-                exit_price, exit_price,        # realized_pnl (legacy)
                 trade_id,
             ),
         )

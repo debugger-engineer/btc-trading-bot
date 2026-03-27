@@ -48,9 +48,8 @@ services:
 
   bot-5x:
     build: .
-    profiles: [bot-5x]
     container_name: btc-trading-bot-5x
-    restart: unless-stopped
+    restart: on-failure
     network_mode: service:tailscale
     depends_on:
       postgres:
@@ -65,9 +64,8 @@ services:
 
   bot-8x:
     build: .
-    profiles: [bot-8x]
     container_name: btc-trading-bot-8x
-    restart: unless-stopped
+    restart: on-failure
     network_mode: service:tailscale
     depends_on:
       postgres:
@@ -82,9 +80,8 @@ services:
 
   bot-10x:
     build: .
-    profiles: [bot-10x]
     container_name: btc-trading-bot-10x
-    restart: unless-stopped
+    restart: on-failure
     network_mode: service:tailscale
     depends_on:
       postgres:
