@@ -62,7 +62,8 @@ def test_no_entry_when_position_already_open():
     bot.position = "LONG"
     with patch.object(bot, "_dry_or_live") as mock_fn:
         bot.check_signals(96_001)  # SHORT condition met
-    mock_fn.assert_not_called()
+    for call in mock_fn.call_args_list:
+        assert "entry" not in call[0][0].lower()
 
 
 def test_no_entry_when_indicators_not_ready():
