@@ -11,7 +11,7 @@ No exchange credentials or DB required.
 
 import argparse
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import pandas as pd
