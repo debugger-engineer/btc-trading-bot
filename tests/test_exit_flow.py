@@ -19,7 +19,7 @@ def _open_long_position(bot):
     bot.exit_order_id = 1003
     bot.stop_order_id = 1002
     bot.current_trade_id = 42
-    bot._position_btc_sz = 0.09574
+    bot._position_sz = 0.09574
     bot._bb_upper = 96_000.0
     bot._bb_lower = 94_000.0
     bot._bb_mid = 95_000.0

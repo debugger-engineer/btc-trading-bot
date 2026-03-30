@@ -21,7 +21,7 @@ jobs:
         run: pip install pandas requests python-dotenv psycopg2-binary pytest pytest-mock
 
       - name: Run unit tests
-        run: pytest test/test_signals.py test/test_stop_logic.py test/test_pnl.py
+        run: pytest tests/test_signals.py tests/test_stop_logic.py tests/test_pnl.py
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
         run: pip install pandas requests python-dotenv psycopg2-binary pytest pytest-mock
 
       - name: Run integration tests
-        run: pytest test/test_entry_flow.py test/test_exit_flow.py
+        run: pytest tests/test_entry_flow.py tests/test_exit_flow.py
 
   deploy:
     needs: [unit-tests, integration-tests]
@@ -67,8 +67,8 @@ jobs:
 
           cd "$TARGET_DIR"
 
-          # Build --profile flags from active accounts in config/accounts.json
-          PROFILE_FLAGS=$(python3 -c "import json; cfg=json.load(open('config/accounts.json')); print(' '.join('--profile '+a['name'] for a in cfg['accounts'] if a.get('active')))")
+          # Build --profile flags from active account-token pairs in config/accounts.json
+          PROFILE_FLAGS=$(python3 -c "import json; cfg=json.load(open('config/accounts.json')); print(' '.join('--profile '+a['name']+'-'+t['symbol'].lower() for a in cfg['accounts'] if a.get('active') for t in a.get('tokens',[]) if t.get('active',True)))")
           echo "Active profiles: $PROFILE_FLAGS"
 
           $DOCKER_COMPOSE $PROFILE_FLAGS up -d --build --remove-orphans
