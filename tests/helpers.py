@@ -18,11 +18,14 @@ def make_mock_trader(
     """Return a MagicMock for HyperliquidTrader with sensible defaults."""
     trader = MagicMock()
     trader.wallet_address = "0xTESTWALLET"
+    trader.sz_decimals = 5
+    trader._coin_name = "BTC"
 
     trader.get_perp_usdc_balance.return_value = balance
+    trader.get_account_equity.return_value = balance
     trader.get_perp_position.return_value = position
-    trader.info.open_orders.return_value = []
-    trader.get_last_btc_perp_fill.return_value = {"px": 95_000.0, "fee": 0.95}
+    trader.get_open_orders.return_value = []
+    trader.get_last_fill.return_value = {"px": 95_000.0, "fee": 0.95}
 
     def _resting(oid):
         return {"response": {"data": {"statuses": [{"resting": {"oid": oid}}]}}}

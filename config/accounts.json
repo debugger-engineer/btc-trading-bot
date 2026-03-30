@@ -1,13 +1,89 @@
 {
   "target_risk_pct": 8.0,
-  "stop_loss_pct": 2.5,
-  "bb_period": 20,
-  "bb_std": 2.0,
-  "ema_period": 200,
-  "perps_live": true,
   "accounts": [
-    { "name": "bot-5x",  "leverage": 5,  "active": true  },
-    { "name": "bot-8x",  "leverage": 8,  "active": false },
-    { "name": "bot-10x", "leverage": 10, "active": false }
+    {
+      "name": "bot-5x",
+      "active": true,
+      "tokens": [
+        {
+          "symbol": "BTC",
+          "binance_symbol": "BTCUSDT",
+          "leverage": 5,
+          "capital_pct": 60.0,
+          "stop_loss_pct": 2.5,
+          "bb_period": 20,
+          "bb_std": 2.0,
+          "ema_period": 200,
+          "active": true
+        },
+        {
+          "symbol": "xyz:GOLD",
+          "binance_symbol": "PAXGUSDT",
+          "leverage": 5,
+          "capital_pct": 40.0,
+          "stop_loss_pct": 2.5,
+          "bb_period": 15,
+          "bb_std": 1.5,
+          "ema_period": 200,
+          "active": true
+        }
+      ]
+    },
+    {
+      "name": "bot-8x",
+      "active": false,
+      "tokens": [
+        {
+          "symbol": "BTC",
+          "binance_symbol": "BTCUSDT",
+          "leverage": 8,
+          "capital_pct": 40.0,
+          "stop_loss_pct": 2.5,
+          "bb_period": 20,
+          "bb_std": 2.0,
+          "ema_period": 200,
+          "active": false
+        },
+        {
+          "symbol": "xyz:GOLD",
+          "binance_symbol": "PAXGUSDT",
+          "leverage": 8,
+          "capital_pct": 30.0,
+          "stop_loss_pct": 2.5,
+          "bb_period": 15,
+          "bb_std": 1.5,
+          "ema_period": 200,
+          "active": false
+        }
+      ]
+    },
+    {
+      "name": "bot-10x",
+      "active": false,
+      "tokens": [
+        {
+          "symbol": "BTC",
+          "binance_symbol": "BTCUSDT",
+          "leverage": 10,
+          "capital_pct": 32.0,
+          "stop_loss_pct": 2.5,
+          "bb_period": 20,
+          "bb_std": 2.0,
+          "ema_period": 200,
+          "active": false
+        },
+        {
+          "symbol": "xyz:GOLD",
+          "binance_symbol": "PAXGUSDT",
+          "leverage": 10,
+          "capital_pct": 30.0,
+          "stop_loss_pct": 2.5,
+          "bb_period": 15,
+          "bb_std": 1.5,
+          "ema_period": 200,
+          "active": false
+        }
+      ]
+    }
   ]
 }

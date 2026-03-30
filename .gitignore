@@ -16,6 +16,9 @@ logs/
 # Tailscale state
 tailscale/
 
+# Local test scripts (CI tests live in tests/)
+test/
+
 PROJECT_PLAN.md
 
 .DS_Store

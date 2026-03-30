@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS perps_trades (
     opened_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     closed_at       TIMESTAMPTZ,
     status          VARCHAR(6)  NOT NULL DEFAULT 'OPEN',  -- OPEN, CLOSED
+    symbol          TEXT        NOT NULL DEFAULT 'BTC',
     direction       VARCHAR(5)  NOT NULL,                 -- LONG, SHORT
     leverage        INTEGER     NOT NULL,
     entry_price     NUMERIC     NOT NULL,
@@ -39,13 +40,7 @@ CREATE TABLE IF NOT EXISTS perps_trades (
 
 
 def _connect():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", 5432)),
-        dbname=os.getenv("DB_NAME", "postgres"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
+    return psycopg2.connect(os.getenv("DATABASE_URL"))
 
 
 def compute_pnl(
@@ -61,10 +56,26 @@ def compute_pnl(
     return {"gross_pnl": gross, "fees": fees, "net_pnl": gross - fees}
 
 
+def _migrate_add_symbol_column():
+    """Add symbol column to existing perps_trades table if missing."""
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'perps_trades' AND column_name = 'symbol'
+        """)
+        if cur.fetchone() is None:
+            cur.execute("ALTER TABLE perps_trades ADD COLUMN symbol TEXT NOT NULL DEFAULT 'BTC'")
+            logger.info("Migration: added 'symbol' column to perps_trades (default='BTC')")
+
+
 def init_bb_db():
     try:
         with _connect() as conn, conn.cursor() as cur:
-            cur.execute(CREATE_BB_TABLE)
+            try:
+                cur.execute(CREATE_BB_TABLE)
+            except psycopg2.errors.UniqueViolation:
+                conn.rollback()  # table created by another bot concurrently
+        _migrate_add_symbol_column()
         logger.info("DB connected — perps_trades table ready")
     except Exception as exc:
         logger.error("Perps DB init failed: %s", exc)
@@ -76,31 +87,34 @@ def init_bb_db():
 def open_bb_trade(
     direction: str, leverage: int, entry_price: float, entry_size_usd: float,
     bb_upper: float, bb_lower: float, bb_mid: float, stop_price: float,
-    account_name: str = "",
+    account_name: str = "", symbol: str = "BTC",
 ) -> int:
     """Insert a new BB mean-reversion trade. Returns the row id."""
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """INSERT INTO perps_trades
-               (direction, leverage, entry_price, entry_size_usd,
+               (symbol, direction, leverage, entry_price, entry_size_usd,
                 bb_upper, bb_lower, bb_mid, stop_price, account_name)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id""",
-            (direction, leverage, entry_price, entry_size_usd,
+            (symbol, direction, leverage, entry_price, entry_size_usd,
              bb_upper, bb_lower, bb_mid, stop_price, account_name),
         )
         trade_id = cur.fetchone()[0]
-    logger.info("BB trade opened — id=%d %s @ $%.2f size=$%.2f SL=$%.2f",
-                trade_id, direction, entry_price, entry_size_usd, stop_price)
+    logger.info("BB trade opened — id=%d %s %s @ $%.2f size=$%.2f SL=$%.2f",
+                trade_id, symbol, direction, entry_price, entry_size_usd, stop_price)
     return trade_id
 
 
-def get_open_bb_trade() -> dict | None:
-    """Return the most recent open BB perp trade row, or None."""
+def get_open_bb_trade(symbol: str = "BTC", account_name: str = "") -> dict | None:
+    """Return the most recent open BB perp trade row for the given symbol/account, or None."""
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """SELECT id, direction, entry_price, entry_size_usd, stop_price
-               FROM perps_trades WHERE status = 'OPEN' ORDER BY opened_at DESC LIMIT 1"""
+               FROM perps_trades
+               WHERE status = 'OPEN' AND symbol = %s AND account_name = %s
+               ORDER BY opened_at DESC LIMIT 1""",
+            (symbol, account_name),
         )
         row = cur.fetchone()
     if row:
