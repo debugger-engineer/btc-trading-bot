@@ -8,17 +8,26 @@ from eth_account import Account
 from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
 from hyperliquid.utils import constants
-from hyperliquid.utils.error import ServerError
+from hyperliquid.utils.error import ClientError, ServerError
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 def _hl_call(fn, *args, retries: int = 3, **kwargs):
-    """Call a Hyperliquid API function, retrying on transient 5xx / network errors."""
+    """Call a Hyperliquid API function, retrying on transient 5xx / 429 / network errors."""
     for attempt in range(1, retries + 1):
         try:
             return fn(*args, **kwargs)
+        except ClientError as e:
+            if e.status_code != 429 or attempt == retries:
+                raise
+            wait = attempt * 2
+            logger.warning(
+                "Hyperliquid 429 rate limit (attempt %d/%d), retrying in %ds",
+                attempt, retries, wait,
+            )
+            time.sleep(wait)
         except ServerError as e:
             if attempt == retries or e.status_code < 500:
                 raise
@@ -68,6 +77,13 @@ class HyperliquidTrader:
         self.info = Info(api_url, skip_ws=True, perp_dexs=perp_dexs)
         self.exchange = Exchange(self.wallet, api_url, account_address=self.wallet_address, perp_dexs=perp_dexs)
 
+        # Detect unified-account mode (spot + perps share one balance)
+        self._unified = (
+            _hl_call(self.info.query_user_abstraction_state, self.wallet_address) == "unifiedAccount"
+        )
+        if self._unified:
+            logger.info("Unified account detected — equity sourced from spot clearinghouse")
+
         # Fetch sz_decimals from Hyperliquid metadata
         self.sz_decimals = self._fetch_sz_decimals()
 
@@ -98,7 +114,19 @@ class HyperliquidTrader:
         return float(state.get("withdrawable", 0))
 
     def get_account_equity(self) -> float:
-        """Return total account equity (margin + unrealized PnL). Safe for multi-token capital allocation."""
+        """Return total account equity (for position-sizing, not available margin).
+
+        For unified accounts the USDC balance lives in the spot clearinghouse.
+        We return `total` (not `total - hold`) so that the per-token capital_pct
+        split divides the full account value evenly across all bots.
+        For legacy (non-unified) accounts we use the perp clearinghouse marginSummary.
+        """
+        if self._unified:
+            spot = _hl_call(self.info.spot_user_state, self.wallet_address)
+            for b in spot.get("balances", []):
+                if b["coin"] == "USDC":
+                    return float(b["total"])
+            return 0.0
         state = _hl_call(self.info.user_state, self.wallet_address)
         return float(state.get("marginSummary", {}).get("accountValue", 0))
 
@@ -150,11 +178,11 @@ class HyperliquidTrader:
         """Round to Hyperliquid's required format: 5 significant figures, 1 decimal place (BTC szDecimals=5)."""
         return round(float(f"{px:.5g}"), 1)
 
-    def place_exit_limit_perp(self, side: str, sz: float, limit_px: float) -> dict:
-        """Place a reduce-only GTC limit order at the exit target (maker fee)."""
+    def place_exit_limit_perp(self, side: str, sz: float, limit_px: float, tif: str = "Alo") -> dict:
+        """Place a reduce-only limit order at the exit target. Default ALO (maker-only)."""
         is_buy     = side == "SHORT"   # buy to close SHORT, sell to close LONG
         px         = self._round_perp_price(limit_px)
-        order_type = {"limit": {"tif": "Gtc"}}
+        order_type = {"limit": {"tif": tif}}
         result = _hl_call(
             self.exchange.order,
             self.symbol, is_buy=is_buy, sz=round(sz, self.sz_decimals),

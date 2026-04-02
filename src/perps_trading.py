@@ -11,6 +11,7 @@ import db
 logger = logging.getLogger(__name__)
 
 BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
+HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
 def _extract_oid(result: dict) -> int | None:
     """Pull the resting order-id from a Hyperliquid order placement response."""
@@ -35,6 +36,15 @@ def _is_alo_rejected(result: dict) -> bool:
         status = result["response"]["data"]["statuses"][0]
         # Hyperliquid returns {"error": "..."} or {"canceled": ...} for ALO kills
         return "error" in status or "canceled" in status
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _is_margin_error(result: dict) -> bool:
+    """Return True if the order was rejected due to insufficient margin."""
+    try:
+        error = result["response"]["data"]["statuses"][0].get("error", "")
+        return "Insufficient margin" in error
     except (KeyError, IndexError, TypeError):
         return False
 
@@ -116,6 +126,8 @@ class PerpsBot:
         self._pending_entry_side: str | None = None
         self._pending_entry_px: float | None = None
         self._pending_entry_time: float | None = None
+        self._margin_cooldown_until: float = 0.0
+        self._last_pos_check: float = 0.0  # throttle exchange position polling
         self._pending_entry_size_usd: float | None = None
         self._pending_bb_snapshot: dict | None = None
 
@@ -192,6 +204,11 @@ class PerpsBot:
     # ── Market data ────────────────────────────────────────────────────────────
 
     def _fetch_klines(self) -> pd.DataFrame:
+        if self.binance_symbol:
+            return self._fetch_klines_binance()
+        return self._fetch_klines_hl()
+
+    def _fetch_klines_binance(self) -> pd.DataFrame:
         limit = max(self.ema_period, self.bb_period) * 3
         params = {"symbol": self.binance_symbol, "interval": "5m", "limit": limit}
         for attempt in range(1, 4):
@@ -213,6 +230,39 @@ class PerpsBot:
         df["close"] = df["close"].astype(float)
         return df
 
+    def _fetch_klines_hl(self) -> pd.DataFrame:
+        """Fetch 5m candles from Hyperliquid candleSnapshot API (for tokens without a Binance pair)."""
+        limit = max(self.ema_period, self.bb_period) * 3
+        end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        start_ms = end_ms - limit * 5 * 60 * 1000  # 5m per candle
+        for attempt in range(1, 4):
+            try:
+                resp = requests.post(HL_INFO_URL, json={
+                    "type": "candleSnapshot",
+                    "req": {
+                        "coin": self.symbol,
+                        "interval": "5m",
+                        "startTime": start_ms,
+                        "endTime": end_ms,
+                    }
+                }, timeout=15)
+                resp.raise_for_status()
+                break
+            except requests.exceptions.ConnectionError as e:
+                if attempt == 3:
+                    raise
+                wait = attempt * 5
+                logger.warning("%s Network error (attempt %d/3), retrying in %ds: %s", self._log_tag, attempt, wait, e)
+                time.sleep(wait)
+        data = resp.json()
+        if not data:
+            raise RuntimeError(f"No candle data from Hyperliquid for {self.symbol}")
+        df = pd.DataFrame(data)
+        df["close"] = df["c"].astype(float)
+        df["open_time"] = pd.to_datetime(df["t"], unit="ms", utc=True)
+        df = df.drop_duplicates("open_time").sort_values("open_time").reset_index(drop=True)
+        return df
+
     def _compute_indicators(self, df: pd.DataFrame):
         closes = df["close"]
         bb_mid   = closes.rolling(self.bb_period).mean()
@@ -231,6 +281,7 @@ class PerpsBot:
             df = self._fetch_klines()
             self._last_close = float(df["close"].iloc[-1])
             self._bb_upper, self._bb_lower, self._bb_mid, self._ema = self._compute_indicators(df)
+            self._margin_cooldown_until = 0.0
             logger.debug(
                 "%s Indicators updated: BB upper=%.2f lower=%.2f mid=%.2f EMA=%.2f",
                 self._log_tag, self._bb_upper, self._bb_lower, self._bb_mid, self._ema,
@@ -249,6 +300,55 @@ class PerpsBot:
             return self._bb_upper is not None and self._bb_upper < self.entry_price
         return False
 
+    def _place_exit_limit_alo(self, target_px: float) -> int | None:
+        """Place an ALO exit limit with retry logic (same pattern as entry ALO).
+
+        Returns the resting order oid, or None if all attempts fail.
+        """
+        result = self.trader.place_exit_limit_perp(self.position, self._position_sz, target_px)
+        oid = _extract_oid(result)
+        if oid is not None:
+            return oid
+        # Check if it filled immediately (rare but possible)
+        filled, filled_px = _is_filled(result)
+        if filled:
+            logger.info("%s Exit limit filled immediately @ $%.2f (maker)", self._log_tag, filled_px)
+            return None  # caller will detect position closed via exchange polling
+        # ALO rejected — retry up to 3 times using BBO
+        limit_px = target_px
+        for attempt in range(1, 4):
+            if not _is_alo_rejected(result):
+                break
+            bbo = _parse_bbo_from_rejection(result)
+            if bbo:
+                bid, ask = bbo
+                # Closing LONG = sell → place at ask to rest as maker
+                # Closing SHORT = buy → place at bid to rest as maker
+                retry_px = ask if self.position == "LONG" else bid
+            else:
+                nudge = 1.0 if self.position == "LONG" else -1.0
+                retry_px = round(limit_px + nudge, 1)
+            logger.info(
+                "%s ALO exit rejected at $%.1f — retry %d/3 at $%.1f",
+                self._log_tag, limit_px, attempt, retry_px,
+            )
+            result = self.trader.place_exit_limit_perp(self.position, self._position_sz, retry_px)
+            oid = _extract_oid(result)
+            if oid is not None:
+                return oid
+            limit_px = retry_px
+        # All ALO retries exhausted — fall back to GTC
+        logger.warning("%s ALO exit rejected after 3 retries — falling back to GTC at $%.1f", self._log_tag, limit_px)
+        result = self.trader.place_exit_limit_perp(self.position, self._position_sz, limit_px, tif="Gtc")
+        oid = _extract_oid(result)
+        if oid is None:
+            filled, filled_px = _is_filled(result)
+            if filled:
+                logger.info("%s GTC exit filled immediately @ $%.2f (taker)", self._log_tag, filled_px)
+            else:
+                logger.error("%s Exit limit failed after all retries: %s", self._log_tag, result)
+        return oid
+
     def _replace_exit_limit(self):
         """Cancel the old exit limit (if any) and place a fresh one at the current target band.
 
@@ -262,8 +362,7 @@ class PerpsBot:
             target_px = self.entry_price
         else:
             target_px = self._bb_upper if self.position == "LONG" else self._bb_lower
-        result = self.trader.place_exit_limit_perp(self.position, self._position_sz, target_px)
-        self.exit_order_id = _extract_oid(result)
+        self.exit_order_id = self._place_exit_limit_alo(target_px)
         logger.info(
             "%s Exit limit refreshed — %s @ $%.1f (oid=%s)%s",
             self._log_tag, self.position, target_px, self.exit_order_id,
@@ -295,7 +394,9 @@ class PerpsBot:
                 self._check_pending_entry(price)
 
             # Detect if position was closed exchange-side (SL or exit limit)
-            if self.position and not self.dry_run:
+            # Throttled to every 10s to avoid 429 rate limits (7 bots share one IP)
+            if self.position and not self.dry_run and (time.monotonic() - self._last_pos_check >= 10):
+                self._last_pos_check = time.monotonic()
                 if self.trader.get_perp_position() is None:
                     open_oids = {
                         o["oid"] for o in self.trader.get_open_orders()
@@ -341,7 +442,9 @@ class PerpsBot:
                 )
 
             if self.position is None and self._pending_entry_oid is None:
-                if price <= bb_lower and price > ema:
+                if time.monotonic() < self._margin_cooldown_until:
+                    pass  # suppressed — already logged once
+                elif price <= bb_lower and price > ema:
                     self._dry_or_live(
                         f"[DRY RUN] ${price:.2f} ≤ BB lower ${bb_lower:.2f} & above EMA — LONG entry",
                         lambda: self._place_entry_limit("LONG", price, bb_upper, bb_lower, bb_mid),
@@ -359,6 +462,11 @@ class PerpsBot:
                         f"[DRY RUN] Stop-loss hit — close LONG @ ${price:.2f} (SL=${sl_price:.2f})",
                         lambda: self._close(price, stopped=True),
                     )
+                elif bb_upper < self.entry_price and price <= self.entry_price:
+                    self._dry_or_live(
+                        f"[DRY RUN] BB inverted (upper=${bb_upper:.2f} < entry=${self.entry_price:.2f}) — close LONG at break-even @ ${price:.2f}",
+                        lambda: self._close(price),
+                    )
                 elif price >= bb_upper:
                     self._dry_or_live(
                         f"[DRY RUN] ${price:.2f} ≥ BB upper ${bb_upper:.2f} — close LONG (target hit)",
@@ -371,6 +479,11 @@ class PerpsBot:
                     self._dry_or_live(
                         f"[DRY RUN] Stop-loss hit — close SHORT @ ${price:.2f} (SL=${sl_price:.2f})",
                         lambda: self._close(price, stopped=True),
+                    )
+                elif bb_lower > self.entry_price and price >= self.entry_price:
+                    self._dry_or_live(
+                        f"[DRY RUN] BB inverted (lower=${bb_lower:.2f} > entry=${self.entry_price:.2f}) — close SHORT at break-even @ ${price:.2f}",
+                        lambda: self._close(price),
                     )
                 elif price <= bb_lower:
                     self._dry_or_live(
@@ -407,7 +520,8 @@ class PerpsBot:
         """
         size_usd = self._entry_size_usd()
         if size_usd < 1.0:
-            logger.warning("%s Skipping — insufficient margin (%.2f USDC)", self._log_tag, size_usd)
+            self._margin_cooldown_until = time.monotonic() + 300
+            logger.warning("%s Skipping — insufficient margin (%.2f USDC). Retry in 5m.", self._log_tag, size_usd)
             return
         self.trader.update_leverage(self.leverage)
         limit_px = bb_lower if side == "LONG" else bb_upper
@@ -428,6 +542,10 @@ class PerpsBot:
             for attempt in range(1, 4):
                 if not _is_alo_rejected(result):
                     break
+                if _is_margin_error(result):
+                    self._margin_cooldown_until = time.monotonic() + 300
+                    logger.warning("%s Insufficient margin from exchange. Retry in 5m.", self._log_tag)
+                    return
                 bbo = _parse_bbo_from_rejection(result)
                 if bbo:
                     bid, ask = bbo
@@ -499,8 +617,7 @@ class PerpsBot:
         self._position_sz = sz
         sl_result = self.trader.place_stop_loss_perp(side, sz, stop_price)
         self.stop_order_id = _extract_oid(sl_result)
-        exit_result = self.trader.place_exit_limit_perp(side, sz, target_price)
-        self.exit_order_id = _extract_oid(exit_result)
+        self.exit_order_id = self._place_exit_limit_alo(target_price)
         self._reset_pending_entry()
         logger.info(
             "%s OPEN %s $%.2f notional @ $%.2f | target=$%.2f (exit_oid=%s) | SL=$%.2f (stop_oid=%s) (trade_id=%d)",
@@ -522,6 +639,15 @@ class PerpsBot:
             (side == "SHORT" and price < limit_px * 0.999)
         )
         if timed_out or price_moved_away:
+            # Check if the order already filled before trying to cancel
+            actual_pos = self.trader.get_perp_position()
+            if actual_pos and actual_pos["side"] == side:
+                logger.info("%s Limit entry oid=%d filled — position confirmed", self._log_tag, self._pending_entry_oid)
+                self._on_entry_filled(
+                    side, limit_px, self._pending_entry_size_usd,
+                    snap["bb_upper"], snap["bb_lower"], snap["bb_mid"],
+                )
+                return
             reason = "timeout" if timed_out else f"price moved away (${price:.2f})"
             logger.info("%s Cancelling pending %s limit oid=%d — %s", self._log_tag, side, self._pending_entry_oid, reason)
             self.trader.cancel_order(self.symbol, self._pending_entry_oid)
@@ -529,10 +655,14 @@ class PerpsBot:
             return
 
         # Fill detection: oid absent from open orders means filled (or externally cancelled)
-        open_oids = {
-            o["oid"] for o in self.trader.get_open_orders()
-            if o.get("coin") == self.symbol
-        }
+        try:
+            open_oids = {
+                o["oid"] for o in self.trader.get_open_orders()
+                if o.get("coin") == self.symbol
+            }
+        except Exception as exc:
+            logger.warning("%s Could not fetch open orders: %s — will retry next tick", self._log_tag, exc)
+            return
         if self._pending_entry_oid not in open_oids:
             actual_pos = self.trader.get_perp_position()
             if actual_pos and actual_pos["side"] == side:
