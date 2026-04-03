@@ -50,6 +50,7 @@ def make_mock_db(trade_id: int = 42) -> MagicMock:
     mock.open_bb_trade.return_value = trade_id
     mock.close_bb_trade.return_value = None
     mock.init_bb_db.return_value = None
+    mock.count_open_bb_trades_by_direction.return_value = 0
     return mock
 
 

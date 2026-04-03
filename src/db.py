@@ -126,6 +126,17 @@ def get_open_bb_trade(symbol: str = "BTC", account_name: str = "") -> dict | Non
     return None
 
 
+def count_open_bb_trades_by_direction(direction: str, account_name: str = "") -> int:
+    """Count how many open trades exist in the given direction across all symbols."""
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """SELECT COUNT(*) FROM perps_trades
+               WHERE status = 'OPEN' AND direction = %s AND account_name = %s""",
+            (direction, account_name),
+        )
+        return cur.fetchone()[0]
+
+
 def close_bb_trade(
     trade_id: int, exit_price: float, stopped: bool = False,
     exit_bb_upper: float | None = None, exit_bb_lower: float | None = None, exit_bb_mid: float | None = None,

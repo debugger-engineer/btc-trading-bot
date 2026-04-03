@@ -25,6 +25,188 @@ services:
     volumes:
       - ./config:/app/config:ro
 
+  bot-5x-platinum:
+    build: .
+    container_name: trading-bot-5x-platinum
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:PLATINUM
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-silver:
+    build: .
+    container_name: trading-bot-5x-silver
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:SILVER
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-natgas:
+    build: .
+    container_name: trading-bot-5x-natgas
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:NATGAS
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-brentoil:
+    build: .
+    container_name: trading-bot-5x-brentoil
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:BRENTOIL
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-cl:
+    build: .
+    container_name: trading-bot-5x-cl
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:CL
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-copper:
+    build: .
+    container_name: trading-bot-5x-copper
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:COPPER
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-tsla:
+    build: .
+    container_name: trading-bot-5x-tsla
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:TSLA
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-nvda:
+    build: .
+    container_name: trading-bot-5x-nvda
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:NVDA
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-xyz100:
+    build: .
+    container_name: trading-bot-5x-xyz100
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:XYZ100
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-googl:
+    build: .
+    container_name: trading-bot-5x-googl
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:GOOGL
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-amzn:
+    build: .
+    container_name: trading-bot-5x-amzn
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:AMZN
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-aapl:
+    build: .
+    container_name: trading-bot-5x-aapl
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:AAPL
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-msft:
+    build: .
+    container_name: trading-bot-5x-msft
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:MSFT
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
+  bot-5x-sp500:
+    build: .
+    container_name: trading-bot-5x-sp500
+    restart: on-failure
+    env_file: .env
+    environment:
+      - BOT_ACCOUNT=bot-5x
+      - BOT_SYMBOL=xyz:SP500
+      - HL_PRIVATE_KEY=${HL_PRIVATE_KEY_5X}
+      - HL_WALLET_ADDRESS=${HL_WALLET_ADDRESS_5X}
+    volumes:
+      - ./config:/app/config:ro
+
   bot-8x-btc:
     build: .
     container_name: trading-bot-8x-btc
