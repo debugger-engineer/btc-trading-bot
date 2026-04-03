@@ -11,7 +11,7 @@
           "leverage": 5,
           "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 1.8,
           "ema_period": 200,
           "active": true
         },
@@ -19,20 +19,23 @@
           "symbol": "xyz:GOLD",
           "binance_symbol": "PAXGUSDT",
           "leverage": 5,
-          "stop_loss_pct": 2.5,
+          "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 2.0,
           "ema_period": 200,
+          "min_band_width_pct": 0.15,
+          "force_gtc": true,
           "active": true
         },
         {
           "symbol": "xyz:PLATINUM",
           "yahoo_symbol": "PL=F",
           "leverage": 5,
-          "stop_loss_pct": 3.5,
+          "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 1.5,
           "ema_period": 200,
+          "force_gtc": true,
           "active": true
         },
         {
@@ -43,6 +46,7 @@
           "bb_period": 10,
           "bb_std": 1.0,
           "ema_period": 200,
+          "force_gtc": true,
           "active": true
         },
         {
@@ -53,6 +57,7 @@
           "bb_period": 10,
           "bb_std": 1.0,
           "ema_period": 200,
+          "force_gtc": true,
           "active": true
         },
         {
@@ -61,8 +66,9 @@
           "leverage": 5,
           "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 2.0,
           "ema_period": 200,
+          "force_gtc": true,
           "active": true
         },
         {
@@ -70,7 +76,7 @@
           "yahoo_symbol": "CL=F",
           "leverage": 5,
           "stop_loss_pct": 4.0,
-          "bb_period": 12,
+          "bb_period": 10,
           "bb_std": 1.0,
           "ema_period": 200,
           "active": true
@@ -79,9 +85,9 @@
           "symbol": "xyz:COPPER",
           "yahoo_symbol": "HG=F",
           "leverage": 5,
-          "stop_loss_pct": 2.5,
+          "stop_loss_pct": 3.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 1.5,
           "ema_period": 200,
           "active": true
         },
@@ -89,11 +95,11 @@
           "symbol": "xyz:TSLA",
           "yahoo_symbol": "TSLA",
           "leverage": 5,
-          "stop_loss_pct": 4.0,
+          "stop_loss_pct": 3.5,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 1.8,
           "ema_period": 200,
-          "active": true
+          "active": false
         },
         {
           "symbol": "xyz:NVDA",
@@ -103,15 +109,15 @@
           "bb_period": 10,
           "bb_std": 1.0,
           "ema_period": 200,
-          "active": true
+          "active": false
         },
         {
           "symbol": "xyz:XYZ100",
           "yahoo_symbol": "NQ=F",
           "leverage": 5,
-          "stop_loss_pct": 3.5,
+          "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 1.8,
           "ema_period": 200,
           "active": false
         },
@@ -130,8 +136,8 @@
           "yahoo_symbol": "AMZN",
           "leverage": 5,
           "stop_loss_pct": 3.5,
-          "bb_period": 12,
-          "bb_std": 1.0,
+          "bb_period": 10,
+          "bb_std": 1.2,
           "ema_period": 200,
           "active": false
         },
@@ -140,8 +146,8 @@
           "yahoo_symbol": "AAPL",
           "leverage": 5,
           "stop_loss_pct": 2.5,
-          "bb_period": 12,
-          "bb_std": 1.0,
+          "bb_period": 10,
+          "bb_std": 1.8,
           "ema_period": 200,
           "active": false
         },
@@ -149,9 +155,9 @@
           "symbol": "xyz:MSFT",
           "yahoo_symbol": "MSFT",
           "leverage": 5,
-          "stop_loss_pct": 3.0,
+          "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 1.8,
           "ema_period": 200,
           "active": false
         },
@@ -161,7 +167,7 @@
           "leverage": 5,
           "stop_loss_pct": 4.0,
           "bb_period": 10,
-          "bb_std": 1.0,
+          "bb_std": 2.0,
           "ema_period": 200,
           "active": false
         }
